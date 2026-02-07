@@ -39,6 +39,26 @@ def query() -> Callable[[Callable[Param, RetType]], Callable[Param, RetType]]:
     return decorator
 
 
+def create_uri(
+    username: str,
+    password: str,
+    driver: str | None = None,
+    host: str | None = None,
+    port: str | int | None = None,
+    database: str | None = None,
+):
+    if driver is None:
+        driver = "postgresql+psycopg"
+    if host is None:
+        host = "localhost"
+    if port is None:
+        port = 5432
+    if database is None:
+        database = "postgres"
+    uri = f"{driver}://{username}:{password}@{host}:{port}/{database}"
+    return uri
+
+
 def get_engine(
     database: str = "postgres", user: User | None = None, *, autocommit: bool = False
 ) -> Engine:
@@ -196,3 +216,15 @@ def ensure_creator(
             super_user=super_user, target_user=creator, policies=[PGPolicy.CREATEDB]
         )
         return EnsureCreatorResult.grant_policy
+
+
+@query()
+def create_db(engine: Engine, db_name: str):
+    with engine.connect() as conn:
+        conn.execute(text(f"CREATE DATABASE {db_name}"))
+
+
+@query()
+def drop_db(engine: Engine, db_name: str):
+    with engine.connect() as conn:
+        conn.execute(text(f"DROP DATABASE {db_name}"))

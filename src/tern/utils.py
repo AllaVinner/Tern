@@ -1,4 +1,5 @@
 from collections import defaultdict
+import datetime
 
 
 def make_tree() -> defaultdict:
@@ -35,3 +36,7 @@ def format_tree(paths: list[str], *, prefix="/") -> str:
 
 def print_tree(paths: list[str], *, prefix="/") -> None:
     print(format_tree(paths, prefix=prefix))
+
+
+def create_now_str() -> str:
+    return datetime.datetime.now().strftime("%Y_%m_%dT%H_%M_%S")

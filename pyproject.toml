@@ -3,9 +3,7 @@ name = "tern"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [
-    { name = "allavinner", email = "joel.w.ottosson@gmail.com" }
-]
+authors = [{ name = "allavinner", email = "joel.w.ottosson@gmail.com" }]
 requires-python = ">=3.13"
 dependencies = [
     "click>=8.3.1",
@@ -29,3 +27,4 @@ dev = [
     "ruff>=0.15.0",
     "task>=0.1.0",
 ]
+
