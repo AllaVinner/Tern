@@ -1,12 +1,11 @@
-from pprint import pprint
 from sqlalchemy import create_engine, text
 from tern.utils import print_tree
 from sqlalchemy import Engine
 from sqlalchemy.exc import OperationalError, ProgrammingError
-from dataclasses import dataclass , fields
-from pydantic import BaseModel, Field
-from enum import StrEnum, auto, Enum
-from typing import Callable, ParamSpec, Concatenate, TypeVar
+from dataclasses import dataclass, fields
+from pydantic import BaseModel
+from enum import StrEnum, auto
+from typing import Callable, ParamSpec, TypeVar
 
 Param = ParamSpec("Param")
 RetType = TypeVar("RetType")
@@ -175,9 +174,17 @@ def ensure_creator(
         return EnsureCreatorResult.inplace
     if super_user is None:
         if creator_exists:
-            msg = "Creator user exists but is not granted the CREATEDB policy. No super user was provided. Please manually setup the user or supply a super user."
+            msg = (
+                "Creator user exists but is not granted the CREATEDB policy. "
+                "No super user was provided. "
+                "Please manually setup the user or supply a super user."
+            )
         else:
-            msg = "Creator user exists does not exist or could not connect to database. No super user was provided. Please manually setup the user or supply a super user."
+            msg = (
+                "Creator user exists does not exist or could not connect to database. "
+                "No super user was provided. "
+                "Please manually setup the user or supply a super user."
+            )
         raise TernDBException(msg)
     if not creator_exists:
         create_user(

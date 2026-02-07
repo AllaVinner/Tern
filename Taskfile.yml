@@ -1,0 +1,22 @@
+version: '3'
+
+vars:
+  GREETING: Hello, World!
+
+tasks:
+  default:
+    desc: Print a greeting message
+    cmds:
+      - echo "{{.GREETING}}"
+    silent: true
+  lint:
+    desc: Run format and linging
+    cmds:
+      - uv run ruff format src/tern 
+      - uv run ruff check --fix src/tern 
+      - uv run ruff format tests
+      - uv run ruff check --fix tests
+      - uv run ruff format scripts
+      - uv run ruff check --fix scripts
+  test:
+      - uv run pytest tests

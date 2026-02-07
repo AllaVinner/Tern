@@ -7,6 +7,5 @@ def ensure_creator_user():
     ensure_creator(user, super_user)
 
 
-
 if __name__ == "__main__":
     ensure_creator_user()
