@@ -1,7 +1,6 @@
-from sqlalchemy import create_engine, text
+import psycopg
+from psycopg import Connection
 from tern.utils import print_tree
-from sqlalchemy import Engine
-from sqlalchemy.exc import OperationalError, ProgrammingError
 from dataclasses import dataclass, fields
 from pydantic import BaseModel
 from enum import StrEnum, auto
@@ -25,11 +24,11 @@ def query() -> Callable[[Callable[Param, RetType]], Callable[Param, RetType]]:
         def dec_query(*args: Param.args, **kwargs: Param.kwargs) -> RetType:
             try:
                 return func(*args, **kwargs)
-            except OperationalError:
+            except psycopg.OperationalError:
                 raise TernDBException(
                     "Could not connect to server with super user. Either there is a connection issue or the credentials are bad."
                 )
-            except ProgrammingError as e:
+            except psycopg.ProgrammingError as e:
                 if len(e.args) > 0 and "InsufficientPrivilege" in e.args[0]:
                     raise TernDBException("insufficient privileges")
                 raise
@@ -48,7 +47,7 @@ def create_uri(
     database: str | None = None,
 ):
     if driver is None:
-        driver = "postgresql+psycopg"
+        driver = "postgresql"
     if host is None:
         host = "localhost"
     if port is None:
@@ -59,17 +58,13 @@ def create_uri(
     return uri
 
 
-def get_engine(
+def get_connection(
     database: str = "postgres", user: User | None = None, *, autocommit: bool = False
-) -> Engine:
+) -> Connection:
     if user is None:
         user = User(username="postgres", password="postgres")
-    uri = f"postgresql+psycopg://{user.username}:{user.password}@localhost:5432/{database}"
-    if autocommit:
-        engine = create_engine(uri, isolation_level="AUTOCOMMIT")
-    else:
-        engine = create_engine(uri)
-    return engine
+    conninfo = f"postgresql://{user.username}:{user.password}@localhost:5432/{database}"
+    return psycopg.connect(conninfo, autocommit=autocommit)
 
 
 @dataclass
@@ -80,12 +75,12 @@ class TableListItem:
     table_type: str
 
 
-def list_tables(engine: Engine) -> list[TableListItem]:
+def list_tables(conn: Connection) -> list[TableListItem]:
     column_names = [field.name for field in fields(TableListItem)]
-    with engine.connect() as conn:
+    with conn.cursor() as cur:
         query = f"select {', '.join(column_names)} from information_schema.tables;"
-        res = conn.execute(text(query))
-        values = res.all()
+        cur.execute(query)
+        values = cur.fetchall()
     listing: list[TableListItem] = list()
     for row in values:
         kwargs = {name: value for name, value in zip(column_names, row)}
@@ -108,11 +103,11 @@ class DatabaseListItem:
     name: str
 
 
-def list_databases(engine: Engine) -> list[DatabaseListItem]:
-    with engine.connect() as conn:
+def list_databases(conn: Connection) -> list[DatabaseListItem]:
+    with conn.cursor() as cur:
         query = "select datname as name from pg_database;"
-        res = conn.execute(text(query))
-        values = res.all()
+        cur.execute(query)
+        values = cur.fetchall()
     listing: list[DatabaseListItem] = list()
     for row in values:
         item = DatabaseListItem(name=row[0])
@@ -122,11 +117,13 @@ def list_databases(engine: Engine) -> list[DatabaseListItem]:
 
 @query()
 def can_create_db(user: User) -> bool:
-    engine = get_engine(user=user)
-    with engine.connect() as conn:
+    conn = get_connection(user=user)
+    with conn.cursor() as cur:
         stmt = f"select rolcreatedb from pg_roles where rolname = '{user.username}';"
-        res = conn.execute(text(stmt))
-        predicate = res.scalar()
+        cur.execute(stmt)
+        row = cur.fetchone()
+        predicate = row[0] if row else None
+    conn.close()
     return bool(predicate)
 
 
@@ -150,21 +147,23 @@ def create_user(
     if policies is None:
         policies = list()
     policy_str = "".join([policy + " " for policy in policies])
-    engine = get_engine(user=super_user, autocommit=True)
-    with engine.connect() as conn:
+    conn = get_connection(user=super_user, autocommit=True)
+    with conn.cursor() as cur:
         stmt = f"CREATE ROLE {target_user.username} {policy_str}LOGIN PASSWORD '{target_user.password}';"
-        conn.execute(text(stmt))
+        cur.execute(stmt)
+    conn.close()
 
 
 @query()
 def grant_policies(
     super_user: User, target_user: User, policies: list[PGPolicy]
 ) -> None:
-    engine = get_engine(user=super_user, autocommit=True)
+    conn = get_connection(user=super_user, autocommit=True)
     policy_str = "".join([policy + " " for policy in policies])
     stmt = f"ALTER USER {target_user.username} {policy_str}"
-    with engine.connect() as conn:
-        conn.execute(text(stmt))
+    with conn.cursor() as cur:
+        cur.execute(stmt)
+    conn.close()
 
 
 class EnsureCreatorResult(StrEnum):
@@ -219,12 +218,12 @@ def ensure_creator(
 
 
 @query()
-def create_db(engine: Engine, db_name: str):
-    with engine.connect() as conn:
-        conn.execute(text(f"CREATE DATABASE {db_name}"))
+def create_db(conn: Connection, db_name: str):
+    with conn.cursor() as cur:
+        cur.execute(f"CREATE DATABASE {db_name}")
 
 
 @query()
-def drop_db(engine: Engine, db_name: str):
-    with engine.connect() as conn:
-        conn.execute(text(f"DROP DATABASE {db_name}"))
+def drop_db(conn: Connection, db_name: str):
+    with conn.cursor() as cur:
+        cur.execute(f"DROP DATABASE {db_name}")

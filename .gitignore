@@ -13,3 +13,6 @@ wheels/
 local/
 scratch*
 .env
+CLAUDE.md
+prompts.md
+

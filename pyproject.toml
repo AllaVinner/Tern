@@ -9,7 +9,6 @@ dependencies = [
     "click>=8.3.1",
     "psycopg>=3.3.2",
     "pydantic>=2.12.5",
-    "sqlalchemy>=2.0.46",
 ]
 
 [build-system]
@@ -18,10 +17,8 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "go-task-bin>=3.48.0",
     "ipykernel>=7.2.0",
     "ipython>=9.10.0",
-    "just>=0.8.165",
     "pytest>=9.0.2",
     "python-dotenv>=1.2.1",
     "ruff>=0.15.0",
